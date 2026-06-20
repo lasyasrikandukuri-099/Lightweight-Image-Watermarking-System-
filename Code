@@ -1,0 +1,104 @@
+clear;
+clc;
+close all;
+
+%% Watermark Text
+watermarkText = 'Copyright xAI 2025';
+
+% Convert text to binary
+wmBytes = uint8(watermarkText);
+wmBits = dec2bin(wmBytes,8)';
+wmBits = wmBits(:) - '0';
+wmLen = length(wmBits);
+
+%% Read Input Image
+inputImage = imread('C:\Users\K LASYA SREE\OneDrive\Gambar\Screenshots\Screenshot 2026-06-20 181602.png');
+
+% Convert RGB to YCbCr and use Y channel
+if size(inputImage,3) == 3
+    ycbcr = rgb2ycbcr(inputImage);
+    grayImage = ycbcr(:,:,1);
+else
+    grayImage = inputImage;
+end
+
+[h,w] = size(grayImage);
+
+% Check capacity
+numBlocks = floor(h/8) * floor(w/8);
+
+if wmLen > numBlocks
+    error('Watermark is too large for this image.');
+end
+
+%% Watermark Embedding
+watermarkedGray = grayImage;
+bitIdx = 1;
+
+for row = 1:8:h-7
+    for col = 1:8:w-7
+
+        if bitIdx > wmLen
+            break;
+        end
+
+        % Extract 8x8 block
+        block = double(grayImage(row:row+7,col:col+7));
+
+        % Apply DCT
+        dctBlock = dct2(block);
+
+        % Embed watermark bit in mid-frequency coefficient
+        coeff = round(dctBlock(3,4));
+
+        bit = wmBits(bitIdx);
+
+        coeff = bitset(int32(coeff),1,bit);
+
+        dctBlock(3,4) = double(coeff);
+
+        % Inverse DCT
+        idctBlock = idct2(dctBlock);
+
+        % Clip pixel values
+        idctBlock = max(min(idctBlock,255),0);
+
+        watermarkedGray(row:row+7,col:col+7) = uint8(idctBlock);
+
+        bitIdx = bitIdx + 1;
+
+    end
+
+    if bitIdx > wmLen
+        break;
+    end
+end
+
+%% Reconstruct Color Image
+if size(inputImage,3) == 3
+    ycbcr(:,:,1) = watermarkedGray;
+    watermarkedImage = ycbcr2rgb(ycbcr);
+else
+    watermarkedImage = watermarkedGray;
+end
+
+%% Save Watermarked Image
+outputFile = 'C:\Users\K LASYA SREE\OneDrive\Gambar\Screenshots\watermarked_image.png';
+imwrite(watermarkedImage, outputFile);
+
+%% Display Results
+figure;
+
+subplot(1,2,1);
+imshow(inputImage);
+title('Original Image');
+
+subplot(1,2,2);
+imshow(watermarkedImage);
+title('Watermarked Image');
+
+disp('Watermark embedding completed successfully.');
+disp(['Saved as: ', outputFile]); 
+
+# output
+
